@@ -1,0 +1,149 @@
+/* --- DYNAMIC THEME VARIABLES --- */
+:root[data-theme="cyberpunk"] {
+    --bg-page: #05070a;
+    --bg-panel: rgba(10, 12, 16, 0.85);
+    --text-main: #00f2ff;
+    --text-muted: #007788;
+    --accent: #ff0055;
+    --border: #00f2ff;
+    --shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+    --font-main: 'Courier New', monospace;
+    --canvas-bg: #000000;
+}
+
+:root[data-theme="classic"] {
+    --bg-page: #f7f7f7;
+    --bg-panel: rgba(255, 255, 255, 0.95);
+    --text-main: #535353;
+    --text-muted: #888888;
+    --accent: #535353;
+    --border: #535353;
+    --shadow: none;
+    --font-main: 'Press Start 2P', monospace, sans-serif;
+    --canvas-bg: #f7f7f7;
+}
+
+:root[data-theme="modern"] {
+    --bg-page: #e2e8f0;
+    --bg-panel: rgba(255, 255, 255, 0.8);
+    --text-main: #2d3748;
+    --text-muted: #718096;
+    --accent: #3182ce;
+    --border: #cbd5e0;
+    --shadow: 0 10px 30px rgba(0,0,0,0.1);
+    --font-main: 'Segoe UI', system-ui, sans-serif;
+    --canvas-bg: #edf2f7;
+}
+
+:root[data-theme="scifi"] {
+    --bg-page: #080014;
+    --bg-panel: rgba(20, 0, 40, 0.85);
+    --text-main: #e0b3ff;
+    --text-muted: #8a4fff;
+    --accent: #00ffff;
+    --border: #8a4fff;
+    --shadow: 0 0 30px rgba(138, 79, 255, 0.4);
+    --font-main: 'Lucida Console', Monaco, monospace;
+    --canvas-bg: #0b001a;
+}
+
+/* --- GLOBAL STYLES --- */
+body {
+    margin: 0; padding: 0;
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    font-family: var(--font-main);
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    height: 100vh; overflow: hidden;
+    transition: background-color 0.5s, color 0.5s;
+}
+
+#game-wrapper {
+    position: relative;
+    box-shadow: var(--shadow);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid var(--border);
+    transition: all 0.5s ease;
+    background: var(--canvas-bg);
+    max-width: 100%;
+    width: 800px;
+}
+
+#top-bar {
+    width: 100%;
+    max-width: 800px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 15px; font-weight: bold;
+    letter-spacing: 1px;
+    box-sizing: border-box;
+}
+
+.score-board { font-size: 1.5rem; color: var(--accent); }
+.controls-hint { margin-top: 15px; color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 0 10px; }
+
+canvas { 
+    display: block; 
+    max-width: 100%; 
+    height: auto;
+    touch-action: none;
+}
+
+/* --- MENUS & OVERLAYS --- */
+.overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+    z-index: 10; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+}
+.overlay.active { opacity: 1; pointer-events: auto; }
+
+.panel {
+    background: var(--bg-panel);
+    border: 2px solid var(--border);
+    border-radius: 12px; padding: 30px;
+    width: 80%; max-width: 360px; text-align: center;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    box-sizing: border-box;
+}
+
+h1 { color: var(--accent); margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 2px; font-size: 1.5rem;}
+
+.form-group {
+    display: flex; justify-content: space-between; align-items: center;
+    margin: 15px 0; text-align: left; font-size: 0.9rem;
+}
+
+select, input[type="checkbox"] {
+    background: var(--bg-page); color: var(--text-main);
+    border: 1px solid var(--border); padding: 5px 10px;
+    border-radius: 4px; font-family: inherit; outline: none;
+    max-width: 150px;
+}
+
+button {
+    background: transparent; border: 2px solid var(--accent);
+    color: var(--text-main); padding: 12px 24px;
+    cursor: pointer; font-family: inherit; font-weight: bold;
+    border-radius: 6px; transition: 0.2s; margin-top: 20px;
+    text-transform: uppercase; width: 100%;
+}
+button:hover { background: var(--accent); color: var(--bg-page); }
+
+.btn-icon {
+    position: absolute; top: 15px; right: 15px; z-index: 20;
+    background: var(--bg-panel); border: 1px solid var(--border);
+    color: var(--text-main); padding: 8px; border-radius: 50%;
+    width: 40px; height: 40px; display: flex; justify-content: center;
+    align-items: center; cursor: pointer; transition: 0.2s;
+    margin: 0; font-size: 1.2rem;
+}
+.btn-icon:hover { background: var(--accent); color: var(--bg-page); }
+
+@media (max-width: 600px) {
+    .score-board { font-size: 1.2rem; }
+    #os-label { font-size: 0.8rem; }
+}
