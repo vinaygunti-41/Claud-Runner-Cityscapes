@@ -68,7 +68,7 @@ Switch between unique visual experiences during gameplay.
 
 ---
 
-##  Explore Global Cities
+##  Explore Global Citiess
 
 Run across beautifully generated skyline environments inspired by:
 
