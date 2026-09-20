@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <a href="https://amazing-brown-kxlbmt5t.edgeone.dev/">
+  <a href="https://global-gold-zyvnuesi.edgeone.dev/">
     <img src="https://img.shields.io/badge/%20PLAY%20NOW-39FF14?style=for-the-badge"/>
   </a>
 </p>
