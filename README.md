@@ -17,14 +17,14 @@
 
 ---
 
-## 🎮 Game Preview
+##  Game Preview
 
 <p align="center">
    <img src="https://github.com/naemazam/Clawd-Runner-Cityscapes/blob/main/assets/poster.png" width="600" />
 </p>
 
 <p align="center">
-  <a href="https://naemazam.github.io/Clawd-Runner-Cityscapes/">
+  <a href="https://amazing-brown-kxlbmt5t.edgeone.dev/">
     <img src="https://img.shields.io/badge/%20PLAY%20NOW-39FF14?style=for-the-badge"/>
   </a>
 </p>
@@ -62,7 +62,7 @@ Switch between unique visual experiences during gameplay.
 
 ---
 
-## 🌍 Explore Global Cities
+##  Explore Global Cities
 
 Run across beautifully generated skyline environments inspired by:
 
@@ -73,12 +73,11 @@ Run across beautifully generated skyline environments inspired by:
 
 ---
 
-## 📸 Screenshots
+##  Screenshots
 
 <p align="center">
-  <img src="assets/1.png" width="47%" alt="Screenshot 1"/>
-  <img src="assets/2.png" width="47%" alt="Screenshot 2"/>
-</p>
+  <img src="https://github.com/naemazam/Clawd-Runner-Cityscapes/blob/main/assets/1.png" width="350" /> <img src="https://github.com/naemazam/Clawd-Runner-Cityscapes/blob/main/assets/2.png" width="350" />
+</p> 
 
 ---
 
