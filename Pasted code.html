@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="cyberpunk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Clawd Runner: Cityscapes</title>
+    <style>
+        /* --- DYNAMIC THEME VARIABLES --- */
+        :root[data-theme="cyberpunk"] {
+            --bg-page: #05070a;
+            --bg-panel: rgba(10, 12, 16, 0.9);
+            --text-main: #00f2ff;
+            --text-muted: #007788;
+            --accent: #ff0055;
+            --border: #00f2ff;
+            --shadow: 0 0 20px rgba(0, 242, 255, 0.3), inset 0 0 15px rgba(0, 242, 255, 0.1);
+            --font-main: 'Courier New', monospace;
+            --canvas-bg: #000000;
+        }
+
+        :root[data-theme="classic"] {
+            --bg-page: #e0e0e0;
+            --bg-panel: rgba(240, 240, 240, 0.95);
+            --text-main: #535353;
+            --text-muted: #888888;
+            --accent: #d32f2f;
+            --border: #535353;
+            --shadow: 4px 4px 0px rgba(0,0,0,0.2);
+            --font-main: 'Press Start 2P', monospace, sans-serif;
+            --canvas-bg: #f7f7f7;
+        }
+
+        :root[data-theme="modern"] {
+            --bg-page: #cbd5e0;
+            --bg-panel: rgba(255, 255, 255, 0.95);
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --accent: #3182ce;
+            --border: #a0aec0;
+            --shadow: 0 10px 30px rgba(0,0,0,0.15);
+            --font-main: 'Segoe UI', system-ui, sans-serif;
+            --canvas-bg: #edf2f7;
+        }
+
+        :root[data-theme="scifi"] {
+            --bg-page: #080014;
+            --bg-panel: rgba(20, 0, 40, 0.9);
+            --text-main: #e0b3ff;
+            --text-muted: #8a4fff;
+            --accent: #00ffff;
+            --border: #8a4fff;
+            --shadow: 0 0 30px rgba(138, 79, 255, 0.5), inset 0 0 20px rgba(138, 79, 255, 0.2);
+            --font-main: 'Lucida Console', Monaco, monospace;
+            --canvas-bg: #0b001a;
+        }
+
+        /* --- GLOBAL STYLES --- */
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            height: 100dvh; overflow: hidden; 
+            transition: background-color 0.5s, color 0.5s;
+        }
+
+        /* CRT Scanline Overlay */
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none; z-index: 50; opacity: 0.6;
+        }
+
+        /* Central container to hold everything */
+        #app-container {
+            display: flex; flex-direction: column; width: 100%; max-width: 800px;
+            height: 100%; justify-content: center; z-index: 10;
+        }
+
+        #top-bar {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            padding: 15px 20px; font-weight: bold;
+            letter-spacing: 1px; flex-shrink: 0;
+        }
+
+        .score-board { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+        .score-main { font-size: 1.8rem; color: var(--accent); display: flex; align-items: center; gap: 15px; }
+        .score-high { font-size: 0.9rem; color: var(--text-muted); }
+        
+        .controls-hint { margin-top: 15px; color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 0 10px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 1px;}
+
+        #game-wrapper {
+            position: relative; box-shadow: var(--shadow); border-radius: 12px;
+            overflow: hidden; border: 2px solid var(--border);
+            background: var(--canvas-bg); flex-shrink: 0; display: flex;
+        }
+
+        canvas { 
+            display: block; width: 100%; height: auto;
+            aspect-ratio: 2 / 1; touch-action: none;
+        }
+
+        /* --- DESKTOP MENUS & OVERLAYS --- */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+            z-index: 1000; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .overlay.active { opacity: 1; pointer-events: auto; }
+
+        .panel {
+            background: var(--bg-panel); border: 2px solid var(--border);
+            border-radius: 12px; padding: 35px 30px; width: 90%; max-width: 420px; 
+            text-align: center; box-shadow: var(--shadow); box-sizing: border-box;
+            max-height: 90dvh; overflow-y: auto;
+            transform: scale(0.95) translateY(15px);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .overlay.active .panel { transform: scale(1) translateY(0); }
+
+        /* Game Logo and Animations */
+        .game-logo {
+            width: 100%;
+            max-width: 250px;
+            height: auto;
+            margin: 0 auto 25px auto;
+            display: block;
+            filter: drop-shadow(0 0 10px var(--accent));
+            animation: pulseLogo 2s infinite alternate;
+        }
+
+        @keyframes pulseLogo {
+            0% { filter: drop-shadow(0 0 5px var(--accent)); opacity: 0.9; transform: scale(0.98); }
+            100% { filter: drop-shadow(0 0 20px var(--accent)); opacity: 1; transform: scale(1.02); }
+        }
+
+        h1 { 
+            color: var(--accent); margin: 0 0 25px 0; text-transform: uppercase; 
+            letter-spacing: 3px; font-size: 1.8rem; text-shadow: 0 0 10px var(--accent);
+            animation: pulseText 2s infinite alternate;
+        }
+
+        @keyframes pulseText {
+            0% { text-shadow: 0 0 5px var(--accent); opacity: 0.9; }
+            100% { text-shadow: 0 0 20px var(--accent); opacity: 1; }
+        }
+        
+        .form-group {
+            display: flex; justify-content: space-between; align-items: center;
+            margin: 18px 0; text-align: left; font-size: 1rem; gap: 15px; font-weight: bold;
+        }
+
+        select, input[type="checkbox"] {
+            background: rgba(0,0,0,0.2); color: var(--text-main);
+            border: 1px solid var(--border); padding: 10px 12px;
+            border-radius: 6px; font-family: inherit; outline: none;
+            flex: 1; max-width: 60%; font-size: 1rem; cursor: pointer;
+            transition: all 0.2s;
+        }
+        select:focus, select:hover { background: var(--border); color: var(--bg-page); }
+
+        button {
+            background: transparent; border: 2px solid var(--accent);
+            color: var(--text-main); padding: 16px 24px;
+            cursor: pointer; font-family: inherit; font-weight: bold;
+            border-radius: 8px; transition: all 0.2s; margin-top: 25px;
+            text-transform: uppercase; width: 100%; font-size: 1.2rem;
+            letter-spacing: 2px; position: relative; overflow: hidden;
+        }
+        button:hover { 
+            background: var(--accent); color: var(--bg-page); 
+            box-shadow: 0 0 15px var(--accent); transform: translateY(-2px);
+        }
+        button:active { transform: translateY(1px); }
+
+        .btn-icon {
+            background: var(--bg-panel); border: 1px solid var(--border);
+            color: var(--text-main); padding: 8px; border-radius: 50%;
+            width: 48px; height: 48px; display: flex; justify-content: center;
+            align-items: center; cursor: pointer; transition: 0.2s;
+            margin: 0; font-size: 1.4rem; box-shadow: var(--shadow);
+            margin-left: 15px;
+        }
+        .btn-icon:hover { background: var(--accent); color: var(--bg-page); box-shadow: 0 0 15px var(--accent); }
+
+        /* --- MOBILE CONSOLE DECK --- */
+        #mobile-controls {
+            display: none; width: 100%; flex-grow: 1; gap: 15px; padding: 20px;
+            box-sizing: border-box; background: var(--bg-page);
+            justify-content: center; align-items: center;
+        }
+
+        .control-btn {
+            flex: 1; height: 100%; max-height: 120px; font-size: 1.4rem;
+            margin-top: 0; background: var(--bg-panel); color: var(--accent);
+            border: 2px solid var(--border); border-radius: 12px;
+            user-select: none; touch-action: manipulation;
+            box-shadow: 0 8px 0 var(--border); 
+            transform: translateY(0); transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px;
+        }
+
+        .control-btn span { font-size: 2.2rem; }
+
+        .control-btn:active, .control-btn.active-touch {
+            box-shadow: 0 0px 0 var(--border); transform: translateY(8px);
+            background: var(--accent); color: var(--bg-page); border-color: var(--accent);
+        }
+
+        /* --- RESPONSIVE MOBILE LAYOUT --- */
+        @media (max-width: 768px) {
+            #app-container { justify-content: flex-start; }
+            #top-bar { padding: 12px 15px; align-items: center; }
+            
+            .score-main { font-size: 1.4rem; }
+            .score-board { flex-direction: row; width: 100%; justify-content: space-between; align-items: center;}
+            .score-text-wrapper { display: flex; flex-direction: column; align-items: flex-start; }
+            #os-label { display: none; } 
+            
+            #game-wrapper { border-radius: 0; border-left: none; border-right: none; margin: 0; box-shadow: none; border-top: 2px solid var(--border); border-bottom: 2px solid var(--border);}
+            .controls-hint { display: none; }
+            #mobile-controls { display: flex; }
+
+            .overlay { align-items: flex-end; }
+            .panel { 
+                width: 100%; max-width: 100%; border-radius: 24px 24px 0 0; 
+                border-bottom: none; border-left: none; border-right: none;
+                padding: 30px 25px 40px 25px; transform: translateY(100%);
+            }
+            .overlay.active .panel { transform: translateY(0); }
+            .form-group { flex-direction: column; align-items: stretch; gap: 8px; }
+            select, input[type="checkbox"] { max-width: 100%; width: 100%; box-sizing: border-box; padding: 14px; font-size: 1.1rem; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+
+    <div id="app-container">
+        <div id="top-bar">
+            <div style="color: var(--text-muted);" id="os-label">CLAWD_OS // v5.1_ULTIMATE</div>
+            <div class="score-board">
+                <div class="score-text-wrapper">
+                    <div class="score-high">HI: <span id="hi-score">0</span></div>
+                    <div class="score-main">SCORE: <span id="score" style="min-width: 60px; text-align:right;">0</span></div>
+                </div>
+                <button class="btn-icon" id="btn-settings" aria-label="Settings">⚙</button>
+            </div>
+        </div>
+
+        <div id="game-wrapper">
+            <canvas id="gameCanvas" width="800" height="400"></canvas>
+        </div>
+
+        <div class="controls-hint">[SPACE/UP] DOUBLE JUMP • [DOWN] DUCK</div>
+
+        <div id="mobile-controls">
+            <button id="btn-duck" class="control-btn"><span>⏬</span> DUCK</button>
+            <button id="btn-jump" class="control-btn"><span>⏫</span> JUMP</button>
+        </div>
+    </div>
+
+    <!-- Menus (Fixed to screen) -->
+    <div id="menu-overlay" class="overlay active">
+        <div class="panel">
+            <img src="https://raw.githubusercontent.com/naemazam/Clawd-Runner-Cityscapes/main/assets/gamelogo.png" alt="Clawd Runner Logo" class="game-logo">
+            
+            <div class="form-group">
+                <label>MODE</label>
+                <select id="theme-select">
+                    <option value="cyberpunk">Cyberpunk</option>
+                    <option value="modern">Modern</option>
+                    <option value="scifi">Sci-Fi</option>
+                    <option value="classic">Classic</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>LOCATION</label>
+                <select id="loc-select">
+                    <option value="classic">Classic Dino</option>
+                    <option value="newyork">New York City</option>
+                    <option value="shanghai">Shanghai</option>
+                    <option value="dhaka">Dhaka</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>AUDIO FX</label>
+                <input type="checkbox" id="sound-toggle" checked>
+            </div>
+
+            <button id="btn-start">INITIALIZE ROUTINE</button>
+        </div>
+    </div>
+
+    <!-- GitHub Star Interruption Overlay -->
+    <div id="github-star-overlay" class="overlay">
+        <div class="panel">
+            <h1 style="color: var(--text-main); font-size: 1.5rem; letter-spacing: 2px;">ENJOYING THE RUN?</h1>
+            <p style="margin-bottom: 20px; color: var(--text-muted); line-height: 1.5; font-size: 0.95rem;">
+                You've reached a score of 100! Help support Clawd Runner by starring the repository on GitHub.
+            </p>
+            <button id="btn-star-github" style="margin-top: 10px; background: var(--accent); color: var(--bg-page);">⭐ STAR ON GITHUB</button>
+            <button id="btn-star-later" style="margin-top: 15px; border-color: var(--text-muted); color: var(--text-muted); background: transparent;">MAYBE LATER</button>
+        </div>
+    </div>
+
+    <div id="game-over-overlay" class="overlay">
+        <div class="panel">
+            <h1 style="color: var(--accent); animation: none;">SYSTEM FAILURE</h1>
+            <p style="margin-bottom: 5px; color: var(--text-muted);">FINAL SCORE</p>
+            <span id="final-score" style="font-weight: bold; font-size: 3.5rem; color: var(--text-main); display: block; margin-bottom: 5px; text-shadow: 0 0 10px var(--text-main);">0</span>
+            <p id="new-high-score-msg" style="color: #ffd700; font-weight: bold; display: none; margin: 0 0 20px 0; animation: pulseText 1s infinite alternate;">NEW HIGH SCORE!</p>
+            <button id="btn-restart">REBOOT</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const hiScoreEl = document.getElementById('hi-score');
+        const finalScoreEl = document.getElementById('final-score');
+        const newHighScoreMsg = document.getElementById('new-high-score-msg');
+        
+        const menuOverlay = document.getElementById('menu-overlay');
+        const gameOverOverlay = document.getElementById('game-over-overlay');
+        const githubStarOverlay = document.getElementById('github-star-overlay');
+        
+        const THEMES = {
+            cyberpunk: { bg: '#05070a', ground: '#161b22', line: '#00f2ff', obs1: '#ff0055', obs2: '#00f2ff', filter: 'none' },
+            classic: { bg: '#e0e0e0', ground: '#535353', line: '#535353', obs1: '#535353', obs2: '#535353', filter: 'grayscale(100%) contrast(150%)' },
+            modern: { bg: '#cbd5e0', ground: '#718096', line: '#3182ce', obs1: '#e53e3e', obs2: '#38a169', filter: 'saturate(1.2)' },
+            scifi: { bg: '#080014', ground: '#1a0033', line: '#00ffff', obs1: '#ff00ff', obs2: '#ffff00', filter: 'hue-rotate(90deg)' }
+        };
+
+        let currentTheme = 'cyberpunk';
+        let currentLocation = 'classic';
+        let state = { 
+            active: false, 
+            paused: true, 
+            score: 0, 
+            speed: 6, 
+            frameCount: 0, 
+            groundY: 340, 
+            bgOffset: 0,
+            hasPromptedStar: false 
+        };
+        const config = { sound: true };
+
+        // High Score Init
+        let savedHighScore = localStorage.getItem('clawd_runner_hi') || 0;
+        hiScoreEl.innerText = savedHighScore;
+
+        // Audio System
+        const AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type, duration, vol = 0.05) {
+            if (!config.sound || !state.active) return;
+            try {
+                if (AudioCtx.state === 'suspended') AudioCtx.resume();
+                const osc = AudioCtx.createOscillator();
+                const gain = AudioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, AudioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, AudioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, AudioCtx.currentTime + duration);
+                osc.connect(gain); gain.connect(AudioCtx.destination);
+                osc.start(); osc.stop(AudioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        const clawdImg = new Image();
+        clawdImg.src = 'https://cdn.stickermule.com/artworks/1c69d7fd-a6de-42a8-99be-3edc7b32c8f1/large.png?cacheFor=31a4293c9f5cc540655eb3642dd66c15';
+
+        // Pre-load external cityscape vectors
+        const bgImages = { newyork: new Image(), shanghai: new Image(), dhaka: new Image() };
+        bgImages.newyork.crossOrigin = "anonymous"; bgImages.newyork.src = 'https://t3.ftcdn.net/jpg/01/41/49/38/360_F_141493835_XYWsOzzOJbI8UVu5zzX9zwLfSQtNDhIa.jpg';
+        bgImages.shanghai.crossOrigin = "anonymous"; bgImages.shanghai.src = 'https://t3.ftcdn.net/jpg/00/58/03/24/360_F_58032450_yvjAJ1HLNatvHhw4o7d2g7JMWcFB2tWr.jpg';
+        bgImages.dhaka.crossOrigin = "anonymous"; bgImages.dhaka.src = 'https://png.pngtree.com/png-vector/20221023/ourmid/pngtree-dhaka-city-skyline-silhouette-background-culture-dhaka-asia-vector-png-image_34379458.png';
+
+        Object.values(bgImages).forEach(img => { img.onload = () => { if (!state.active) { renderCityscape(); draw(); } }; });
+
+        // --- PARTICLE SYSTEM ---
+        let particles = [];
+        class Particle {
+            constructor(x, y, color, type) {
+                this.x = x; this.y = y; this.color = color; this.type = type;
+                if (type === 'dust') {
+                    this.vx = -state.speed * 0.5 - Math.random() * 2;
+                    this.vy = -Math.random() * 2;
+                    this.size = Math.random() * 3 + 2;
+                    this.maxLife = 20 + Math.random() * 10;
+                } else if (type === 'sparkle') {
+                    this.vx = (Math.random() - 0.5) * 8;
+                    this.vy = (Math.random() - 0.5) * 8;
+                    this.size = Math.random() * 4 + 2;
+                    this.maxLife = 30 + Math.random() * 20;
+                } else if (type === 'explode') {
+                    this.vx = (Math.random() - 0.5) * 12;
+                    this.vy = (Math.random() - 0.5) * 12;
+                    this.size = Math.random() * 6 + 3;
+                    this.maxLife = 25 + Math.random() * 15;
+                }
+                this.life = this.maxLife;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if(this.type === 'dust') this.size *= 0.95;
+                this.life--;
+            }
+            draw(ctx) {
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.fillStyle = this.color;
+                if (this.type === 'sparkle') {
+                    ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+                    ctx.fillRect(this.x, this.y, this.size, this.size);
+                } else {
+                    ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+                }
+                ctx.shadowBlur = 0; ctx.globalAlpha = 1.0;
+            }
+        }
+
+        function spawnParticles(x, y, color, type, count) {
+            for(let i=0; i<count; i++) particles.push(new Particle(x, y, color, type));
+        }
+
+        // --- HANDCRAFTED CITYSCAPE GENERATOR ---
+        let bgBuffer = document.createElement('canvas');
+        bgBuffer.width = 1600; bgBuffer.height = 400;
+
+        function renderCityscape() {
+            const bctx = bgBuffer.getContext('2d');
+            bctx.clearRect(0, 0, bgBuffer.width, bgBuffer.height);
+            const themeColors = THEMES[currentTheme];
+            const gy = state.groundY;
+
+            if (['newyork', 'shanghai', 'dhaka'].includes(currentLocation) && bgImages[currentLocation].complete && bgImages[currentLocation].naturalWidth > 0) {
+                const img = bgImages[currentLocation];
+                const targetHeight = 350; 
+                const targetWidth = (img.naturalWidth / img.naturalHeight) * targetHeight;
+                
+                bctx.save();
+                if (currentTheme === 'cyberpunk' || currentTheme === 'scifi') bctx.filter = `invert(1) contrast(2)`;
+                else bctx.filter = `contrast(1.5)`;
+                
+                let curX = 0;
+                while (curX < 1600) { bctx.drawImage(img, curX, gy - targetHeight + 15, targetWidth, targetHeight); curX += targetWidth; }
+                bctx.restore();
+                return;
+            }
+
+            // Fallback Engine 
+            const rect = (x, y, w, h) => bctx.fillRect(x, gy - h - y, w, h);
+            function drawPattern(offsetX) {
+                bctx.save(); bctx.translate(offsetX, 0); bctx.fillStyle = themeColors.ground;
+                if (currentLocation === 'classic') {
+                    bctx.globalAlpha = 1.0;
+                    const drawCloud = (cx, cy) => {
+                        bctx.fillRect(cx + 20, cy, 30, 10); bctx.fillRect(cx + 10, cy + 10, 50, 10);
+                        bctx.fillRect(cx, cy + 20, 70, 10); bctx.fillRect(cx + 10, cy + 30, 50, 10);
+                    };
+                    drawCloud(100, gy - 250); drawCloud(450, gy - 280); drawCloud(700, gy - 190);
+                    for(let i = 0; i < 800; i += 15) {
+                        if(Math.random() > 0.6) bctx.fillRect(i, gy + 5, 4, 3);
+                        if(Math.random() > 0.8) bctx.fillRect(i + 8, gy + 15, 3, 3);
+                        if(Math.random() > 0.9) bctx.fillRect(i + 4, gy + 25, 6, 2);
+                    }
+                }
+                bctx.restore();
+            }
+            drawPattern(0); drawPattern(800);
+        }
+
+        // --- PLAYER CONTROLLER (WITH DOUBLE JUMP) ---
+        const player = {
+            x: 80, y: 0, w: 56, h: 56, dy: 0, jumped: false, ducking: false,
+            jumps: 0, maxJumps: 2, // New Double Jump mechanics
+            get hitbox() {
+                const duckOffset = this.ducking ? 18 : 0;
+                return {
+                    headX: this.x + this.w/2, headY: this.y + 14 + duckOffset, headR: 10, 
+                    bodyX: this.x + 12, bodyY: this.y + 24 + duckOffset, bodyW: this.w - 24, bodyH: this.ducking ? this.h - 42 : this.h - 24
+                };
+            },
+            update() {
+                this.dy += 0.85; // Gravity
+                this.y += this.dy;
+                
+                // Ground collision
+                if (this.y + this.h >= state.groundY) {
+                    this.y = state.groundY - this.h;
+                    this.dy = 0; this.jumped = false; this.jumps = 0; // Reset jumps
+                    
+                    // Running Dust Particles
+                    if (state.active && state.frameCount % 5 === 0 && !this.ducking) {
+                        spawnParticles(this.x + 15, state.groundY, THEMES[currentTheme].obs2, 'dust', 1);
+                    }
+                }
+            },
+            draw(themeColors) {
+                ctx.save();
+                ctx.filter = THEMES[currentTheme].filter;
+                let dh = this.ducking ? this.h * 0.65 : this.h;
+                let dy = this.ducking ? this.y + (this.h * 0.35) : this.y;
+                
+                // Spin player on double jump
+                let tilt = 0;
+                if (this.jumps === 2) {
+                    tilt = (this.y / 150) * Math.PI; // Flip animation
+                } else {
+                    tilt = Math.sin(state.frameCount * 0.2) * 0.05; // Normal running wobble
+                }
+
+                ctx.translate(this.x + this.w/2, dy + dh/2);
+                ctx.rotate(this.jumped && this.jumps < 2 ? 0 : tilt);
+                ctx.drawImage(clawdImg, -this.w/2, -dh/2, this.w, dh);
+                ctx.restore();
+            }
+        };
+
+        // --- OBSTACLES ---
+        let obstacles = [];
+        class Obstacle {
+            constructor() {
+                const r = Math.random();
+                if (r < 0.03) this.type = 4;      // 3% chance: Golden Floppy (Easter Egg Bonus)
+                else if (r < 0.20) this.type = 5; // 17% chance: Cyber Hound
+                else if (r < 0.40) this.type = 3; // 20% chance: Rolling Gear
+                else if (r < 0.60) this.type = 2; // 20% chance: UFO / Sine Wave
+                else if (r < 0.80) this.type = 1; // 20% chance: Pterodactyl
+                else this.type = 0;               // 20% chance: Cactus
+                
+                this.isBonus = (this.type === 4);
+                
+                if (this.type === 0) { this.w = 30 + Math.random()*20; this.h = 40 + Math.random()*25; this.y = state.groundY - this.h; this.speedMult = 1; } 
+                else if (this.type === 1) { this.w = 45; this.h = 18; this.y = state.groundY - 80; this.speedMult = 1.25; } 
+                else if (this.type === 2) { this.w = 40; this.h = 20; this.startY = state.groundY - 110; this.y = this.startY; this.speedMult = 1.1; } 
+                else if (this.type === 3) { this.w = 35; this.h = 35; this.y = state.groundY - this.h; this.speedMult = 1.5; } 
+                else if (this.type === 4) { this.w = 30; this.h = 30; this.startY = state.groundY - 60 - Math.random()*40; this.y = this.startY; this.speedMult = 1; } 
+                else if (this.type === 5) { this.w = 35; this.h = 30; this.y = state.groundY - this.h; this.speedMult = 1.35; }
+                
+                this.x = canvas.width; this.passed = false;
+            }
+            update() { 
+                this.x -= state.speed * this.speedMult; 
+                if (this.type === 2 || this.type === 4) this.y = this.startY + Math.sin(state.frameCount * 0.1) * 20;
+            }
+            draw(themeColors) {
+                ctx.fillStyle = this.isBonus ? '#ffd700' : (this.type % 2 === 0 ? themeColors.obs1 : themeColors.obs2);
+                const cx = this.x; const cy = this.y; const cw = this.w; const ch = this.h;
+
+                if (this.isBonus) { ctx.shadowBlur = 15 + Math.sin(state.frameCount * 0.2) * 10; ctx.shadowColor = '#ffd700'; } 
+                else if (currentTheme === 'cyberpunk' || currentTheme === 'scifi') { ctx.shadowBlur = 12; ctx.shadowColor = ctx.fillStyle; }
+
+                if (this.type === 0) {
+                    ctx.fillRect(cx + cw/2 - 6, cy, 12, ch); ctx.fillRect(cx, cy + 15, 8, ch/2 - 5);
+                    ctx.fillRect(cx + 8, cy + 15 + ch/2 - 5, cw/2 - 14, 8); ctx.fillRect(cx + cw - 8, cy + 25, 8, ch/2 - 10);
+                    ctx.fillRect(cx + cw/2 + 6, cy + 25 + ch/2 - 10, cw/2 - 14, 8);
+                } else if (this.type === 1) {
+                    const flap = state.frameCount % 30 < 15;
+                    ctx.fillRect(cx + 10, cy + 6, 18, 6); ctx.fillRect(cx + 28, cy + 2, 10, 6); ctx.fillRect(cx + 38, cy + 4, 7, 4); 
+                    if (flap) { ctx.fillRect(cx + 12, cy - 4, 14, 10); } else { ctx.fillRect(cx + 12, cy + 12, 14, 10); } 
+                } else if (this.type === 2) {
+                    ctx.beginPath(); ctx.arc(cx + cw/2, cy + 8, 12, Math.PI, 0); ctx.fill(); ctx.fillRect(cx, cy + 8, cw, 8); 
+                    if (state.frameCount % 20 < 10) { ctx.fillStyle = themeColors.obs1; ctx.fillRect(cx + 4, cy + 10, 4, 4); ctx.fillRect(cx + cw - 8, cy + 10, 4, 4); }
+                } else if (this.type === 3) {
+                    ctx.save(); ctx.translate(cx + cw/2, cy + ch/2); ctx.rotate(state.frameCount * 0.15); 
+                    ctx.beginPath(); ctx.arc(0, 0, cw/2 - 4, 0, Math.PI*2); ctx.fill();
+                    for(let j=0; j<4; j++) { ctx.rotate(Math.PI/4); ctx.fillRect(-cw/2, -4, cw, 8); }
+                    ctx.restore();
+                } else if (this.type === 4) {
+                    ctx.fillRect(cx, cy, cw, ch); ctx.fillStyle = '#000'; ctx.shadowBlur = 0; 
+                    ctx.fillRect(cx + 5, cy + 5, cw - 10, 12); ctx.fillRect(cx + 12, cy + ch - 8, cw - 24, 8); 
+                } else if (this.type === 5) {
+                    const runOffset = (state.frameCount % 12 < 6) ? 3 : -3;
+                    ctx.fillRect(cx + 10, cy + 10, 20, 12); ctx.fillRect(cx, cy + 2, 12, 10); 
+                    ctx.fillStyle = '#f00'; ctx.shadowBlur = 0; ctx.fillRect(cx + 2, cy + 4, 4, 4); 
+                    ctx.fillStyle = ctx.shadowColor; ctx.fillRect(cx + 12 + runOffset, cy + 22, 4, 8); ctx.fillRect(cx + 24 - runOffset, cy + 22, 4, 8); 
+                }
+                ctx.shadowBlur = 0; 
+            }
+        }
+
+        // --- ENGINE ---
+        function startGame() {
+            currentTheme = document.getElementById('theme-select').value;
+            currentLocation = document.getElementById('loc-select').value;
+            config.sound = document.getElementById('sound-toggle').checked;
+            
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            renderCityscape(); 
+            
+            state.score = 0; state.speed = 6.5; state.frameCount = 0;
+            state.active = true; state.paused = false; state.bgOffset = 0;
+            state.hasPromptedStar = false; // Reset prompt trigger
+            obstacles = []; particles = []; player.y = state.groundY - player.h; player.dy = 0; player.ducking = false; player.jumps = 0;
+            scoreEl.innerText = '0';
+            
+            newHighScoreMsg.style.display = 'none';
+            menuOverlay.classList.remove('active');
+            gameOverOverlay.classList.remove('active');
+            githubStarOverlay.classList.remove('active');
+            
+            if (AudioCtx.state === 'suspended') AudioCtx.resume();
+            loop();
+        }
+
+        function triggerGameOver() {
+            state.active = false;
+            finalScoreEl.innerText = state.score;
+            playTone(150, 'sawtooth', 0.4, 0.1);
+            spawnParticles(player.x + player.w/2, player.y + player.h/2, THEMES[currentTheme].obs1, 'explode', 30);
+            
+            // Handle High Score
+            if (state.score > savedHighScore) {
+                savedHighScore = state.score;
+                localStorage.setItem('clawd_runner_hi', savedHighScore);
+                hiScoreEl.innerText = savedHighScore;
+                newHighScoreMsg.style.display = 'block';
+                playTone(600, 'triangle', 0.1); setTimeout(()=>playTone(800, 'triangle', 0.3), 150);
+            }
+            
+            // Allow particles to render for a moment before stopping loop
+            setTimeout(() => {
+                state.paused = true;
+                gameOverOverlay.classList.add('active');
+            }, 800);
+        }
+
+        // GitHub Prompt Actions
+        function resumeFromStarPrompt() {
+            githubStarOverlay.classList.remove('active');
+            state.paused = false;
+            loop(); // Kickstart the loop again
+        }
+
+        document.getElementById('btn-star-github').onclick = () => {
+            window.open('https://github.com/vinaygunti-41/Claud-Runner-Cityscapes', '_blank');
+            resumeFromStarPrompt();
+        };
+        
+        document.getElementById('btn-star-later').onclick = resumeFromStarPrompt;
+
+        function loop() {
+            if (state.paused) return; // Stop drawing entirely if fully paused
+            update();
+            draw();
+            if(state.active || particles.length > 0) requestAnimationFrame(loop);
+        }
+
+        function update() {
+            if (!state.active) {
+                // Game Over state: only update particles
+                for(let i=particles.length-1; i>=0; i--) {
+                    particles[i].update();
+                    if(particles[i].life <= 0) particles.splice(i, 1);
+                }
+                return;
+            }
+
+            // --- GITHUB STAR PROMPT TRIGGER ---
+            if (state.score >= 100 && !state.hasPromptedStar) {
+                state.hasPromptedStar = true;
+                state.paused = true;
+                githubStarOverlay.classList.add('active');
+                return; // Suspend update loop immediately
+            }
+
+            state.frameCount++;
+            player.update();
+            
+            state.bgOffset -= state.speed * 0.3;
+            if (state.bgOffset <= -800) state.bgOffset = 0;
+
+            for(let i=particles.length-1; i>=0; i--) {
+                particles[i].update();
+                if(particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            let spawnRate = Math.max(45, 110 - (state.score * 0.8));
+            if (state.frameCount % Math.floor(spawnRate) === 0) obstacles.push(new Obstacle());
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const o = obstacles[i];
+                o.update();
+                
+                const h = player.hitbox;
+                let testX = h.headX; let testY = h.headY;
+                if (h.headX < o.x) testX = o.x; else if (h.headX > o.x + o.w) testX = o.x + o.w;
+                if (h.headY < o.y) testY = o.y; else if (h.headY > o.y + o.h) testY = o.y + o.h;
+                const hitHead = Math.sqrt(Math.pow(h.headX - testX, 2) + Math.pow(h.headY - testY, 2)) <= h.headR;
+                const hitBody = (h.bodyX < o.x + o.w && h.bodyX + h.bodyW > o.x && h.bodyY < o.y + o.h && h.bodyY + h.bodyH > o.y);
+
+                if (hitHead || hitBody) {
+                    if (o.isBonus) {
+                        state.score += 100; scoreEl.innerText = state.score + " 💾!";
+                        setTimeout(() => { if(state.active) scoreEl.innerText = state.score; }, 600);
+                        playTone(800, 'sine', 0.1); playTone(1200, 'triangle', 0.15); 
+                        spawnParticles(o.x + o.w/2, o.y + o.h/2, '#ffd700', 'sparkle', 20);
+                        obstacles.splice(i, 1);
+                        continue;
+                    } else {
+                        triggerGameOver();
+                    }
+                }
+
+                if (!o.passed && o.x + o.w < player.x) {
+                    o.passed = true; 
+                    if (!o.isBonus) { 
+                        state.score++; scoreEl.innerText = state.score;
+                        if (state.score % 10 === 0) { state.speed += 0.4; playTone(800, 'sine', 0.1); }
+                    }
+                }
+
+                if (o.x + o.w < 0) obstacles.splice(i, 1);
+            }
+        }
+
+        function draw() {
+            const t = THEMES[currentTheme];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = t.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const useImage = ['newyork', 'shanghai', 'dhaka'].includes(currentLocation) && bgImages[currentLocation].complete && bgImages[currentLocation].naturalWidth > 0;
+
+            if (useImage) {
+                if (currentTheme === 'cyberpunk' || currentTheme === 'scifi') {
+                    ctx.globalCompositeOperation = 'screen'; ctx.drawImage(bgBuffer, state.bgOffset, 0);
+                    ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = t.line; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                } else {
+                    ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.55; ctx.drawImage(bgBuffer, state.bgOffset, 0); ctx.globalAlpha = 1.0;
+                }
+            } else {
+                ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(bgBuffer, state.bgOffset, 0);
+            }
+            
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = t.line; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(0, state.groundY); ctx.lineTo(canvas.width, state.groundY); ctx.stroke();
+
+            if (state.active) player.draw(t);
+            obstacles.forEach(o => o.draw(t));
+            particles.forEach(p => p.draw(ctx));
+        }
+
+        // --- INPUTS (DOUBLE JUMP ENABLED) ---
+        function handleAction(action) {
+            if (!state.active && (menuOverlay.classList.contains('active') || gameOverOverlay.classList.contains('active') || githubStarOverlay.classList.contains('active'))) return;
+            
+            if (action === 'jump' && player.jumps < player.maxJumps && !player.ducking) {
+                player.dy = player.jumps === 0 ? -15.5 : -13; // Second jump is slightly weaker
+                player.jumped = true;
+                player.jumps++;
+                playTone(player.jumps === 1 ? 400 : 600, 'triangle', 0.1); // Higher pitch for double jump
+                
+                // Jump particles
+                if (player.jumps === 2) spawnParticles(player.x + player.w/2, player.y + player.h, THEMES[currentTheme].line, 'dust', 5);
+            }
+        }
+
+        window.addEventListener('keydown', e => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); handleAction('jump'); }
+            if (e.code === 'ArrowDown') { e.preventDefault(); player.ducking = true; player.dy += 5; } // Fast fall when ducking mid-air
+            if (e.code === 'Escape' && state.active) { state.paused = true; menuOverlay.classList.add('active'); }
+        });
+
+        window.addEventListener('keyup', e => { if (e.code === 'ArrowDown') player.ducking = false; });
+
+        const btnJump = document.getElementById('btn-jump');
+        const btnDuck = document.getElementById('btn-duck');
+
+        btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); btnJump.classList.add('active-touch'); handleAction('jump'); }, {passive: false});
+        btnJump.addEventListener('touchend', (e) => { e.preventDefault(); btnJump.classList.remove('active-touch'); }, {passive: false});
+        btnJump.addEventListener('mousedown', (e) => { e.preventDefault(); handleAction('jump'); });
+
+        btnDuck.addEventListener('touchstart', (e) => { e.preventDefault(); btnDuck.classList.add('active-touch'); player.ducking = true; player.dy += 5; }, {passive: false});
+        btnDuck.addEventListener('touchend', (e) => { e.preventDefault(); btnDuck.classList.remove('active-touch'); player.ducking = false; }, {passive: false});
+        btnDuck.addEventListener('mousedown', (e) => { e.preventDefault(); player.ducking = true; player.dy += 5; });
+        btnDuck.addEventListener('mouseup', (e) => { e.preventDefault(); player.ducking = false; });
+        btnDuck.addEventListener('mouseleave', (e) => { e.preventDefault(); player.ducking = false; });
+
+        document.getElementById('btn-start').onclick = startGame;
+        document.getElementById('btn-restart').onclick = startGame;
+        document.getElementById('btn-settings').onclick = () => { if(state.active) { state.paused = true; menuOverlay.classList.add('active'); }};
+
+        clawdImg.onload = () => { renderCityscape(); draw(); };
+    </script>
+</body>
+</html>
