@@ -26,9 +26,15 @@
 <p align="center">
   <a href="https://global-gold-zyvnuesi.edgeone.dev/">
     <img src="https://img.shields.io/badge/%20PLAY%20NOW-39FF14?style=for-the-badge"/>
+
   </a>
 </p>
 
+<p align="center"> 
+<img width="220" height="220" alt="qr-studio-pro" src="https://github.com/user-attachments/assets/df6be9ab-68b5-44a5-8a56-acd0350f4e98" />
+
+  </a>
+</p>
 
 ---
 
